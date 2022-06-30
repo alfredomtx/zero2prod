@@ -1,34 +1,20 @@
-use zero2prod::startup::run;
 use std::net::TcpListener;
 use zero2prod::configuration::get_configuration;
-use sqlx::{PgPool};
-
-pub struct TestApp {
-    pub address: String,
-    pub db_pool: PgPool
-}
+use sqlx::{PgConnection, Connection};
 
 // Launch our application in the background
-async fn spawn_app() -> TestApp {
+fn spawn_app() -> String {
     let listener = TcpListener::bind("127.0.0.1:0")
         .expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
-    let address = format!("http://127.0.0.1:{}", port);
+    let server = zero2prod::startup::run(listener).expect("Failed to bind address");
 
-    let configuration = get_configuration()
-        .expect("Failed to read configuration.");
-    let connection_pool = PgPool::connect(&configuration.database.connection_string())
-        .await
-        .expect("Failed to connect to Postres.");
-
-    let server = run(listener, connection_pool.clone())
-        .expect("Failed to bind address");
+    // Launch the server as a background task
+    // tokio::spawn returns a handle to the spawned future,
+    // but we have no use for it here, hence the non-binding let
     let _ = tokio::spawn(server);
     // We return the application address to the caller
-    TestApp {
-        address,
-        db_pool: connection_pool
-    }
+    format!("http://127.0.0.1:{}", port)
 }
 
 // `tokio::test` is the testing equivalent of `tokio::main`.
@@ -60,17 +46,8 @@ async fn health_check_works(){
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data(){
     // Arrange
-    const USER_NAME: &str = "Alfredo";
-    const USER_EMAIL: &str = "amtrosul@hotmail.com";
     let app_address = spawn_app();
     let client = reqwest::Client::new();
-
-
-    let configuration = get_configuration().expect("Failed to read configuration");
-    let connection_string = configuration.database.connection_string();
-    let mut connection = PgConnection::connect(&connection_string)
-        .await
-        .expect("Failed to connect to Postgres.");
 
     // Act
     let body = "name=Alfredo&email=ursula_le_guin%40gmail.com";
@@ -84,17 +61,6 @@ async fn subscribe_returns_a_200_for_valid_form_data(){
 
     // Assert
     assert_eq!(200, response.status().as_u16());
-
-    let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-    .fetch_one(&mut connection)
-    .await
-    .expect("Failed to fecth saved subscription.");
-
-    dbg!(&saved);
-
-    assert_eq!(saved.email, USER_EMAIL);
-    assert_eq!(saved.name, USER_NAME)
-
 }
 
 #[tokio::test]
