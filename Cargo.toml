@@ -38,8 +38,8 @@ features = [
 "migrate"
 ]
 
-
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
-[target.x86_64-pc-windows-gnu]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+# Commented for now since it seems it is not having effect (cargo check says is unused)
+# [target.x86_64-pc-windows-msvc]
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+# [target.x86_64-pc-windows-gnu]
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]
