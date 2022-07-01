@@ -22,7 +22,7 @@ actix-web = "4.1.0"
 serde = { version = "1.0.137", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 uuid = { version = "1.1.2", features = ["v4"] }
-chrono = "0.4.19"
+chrono = { version = "0.4.19", default_features = false, features = ["clock"] }
 config = "0.13.1"
 
 # Using table-like toml syntax to avoid a super-long line!
