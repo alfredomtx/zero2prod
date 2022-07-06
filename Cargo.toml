@@ -30,6 +30,7 @@ tracing-subscriber = { version = "0.3.14", features = ["registry", "env-filter"]
 tracing-bunyan-formatter = "0.3.3"
 tracing-log = "0.1.3"
 secrecy = { version = "0.8.0", features = ["serde"] }
+tracing-actix-web = "0.6.0"
 
 
 # Using table-like toml syntax to avoid a super-long line!
@@ -42,7 +43,8 @@ features = [
 "postgres",
 "uuid",
 "chrono",
-"migrate"
+"migrate",
+"offline"
 ]
 
 # Commented for now since it seems it is not having effect (cargo check says is unused)
