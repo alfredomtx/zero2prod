@@ -4,12 +4,14 @@ use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgSslMode;
 use sqlx::ConnectOptions;
 
+#[derive(Debug)]
 #[derive(serde::Deserialize)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings
 }
 
+#[derive(Debug)]
 #[derive(serde::Deserialize)]   
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -17,6 +19,7 @@ pub struct ApplicationSettings {
     pub host: String
 }
 
+#[derive(Debug)]
 #[derive(serde::Deserialize)]
 pub struct DatabaseSettings {
     pub username: String,
