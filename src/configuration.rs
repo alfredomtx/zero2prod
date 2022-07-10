@@ -45,6 +45,7 @@ impl DatabaseSettings {
             .username(&self.username)
             .password(&self.password.expose_secret())
             .port(self.port)
+            .ssl_mode(ssl_mode)
     }
 
     pub fn with_db(&self) -> PgConnectOptions {
@@ -52,8 +53,6 @@ impl DatabaseSettings {
         options.log_statements(tracing::log::LevelFilter::Trace); 
         options
     }
-    
-
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
@@ -101,7 +100,10 @@ impl TryFrom<String> for Environment {
         match s.to_lowercase().as_str() {
             "local" => Ok(Self::Local),
             "production" => Ok(Self::Production),
-            other => Err(format!("{} is not a supported environment. Use either 'local' or 'production'.", other))
+            other => Err(format!(
+                "{} is not a supported environment. Use either 'local' or 'production'.",
+                other
+            )),
         }
     }
 
