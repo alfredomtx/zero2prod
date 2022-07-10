@@ -31,19 +31,19 @@ services:
     envs:
       - key: APP_DATABASE__USERNAME
         scope: RUN_TIME
-        value: ${newsletter.USERNAME}
+        value: ${USERNAME}
       - key: APP_DATABASE__PASSWORD
         scope: RUN_TIME
-        value: ${newsletter.PASSWORD}
+        value: ${PASSWORD}
       - key: APP_DATABASE__HOST
         scope: RUN_TIME
-        value: ${newsletter.HOSTNAME}
+        value: ${HOSTNAME}
       - key: APP_DATABASE__PORT
         scope: RUN_TIME
-        value: ${newsletter.PORT}
+        value: ${PORT}
       - key: APP_DATABASE__DATABASE_NAME
         scope: RUN_TIME
-        value: ${newsletter.DATABASE}
+        value: ${DATABASE}
       
 databases:
   # PG = Postgres
