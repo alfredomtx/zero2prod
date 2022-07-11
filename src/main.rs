@@ -17,14 +17,8 @@ async fn main() -> std::io::Result<()> {
         .acquire_timeout(std::time::Duration::from_secs(2))
         .connect_lazy_with(configuration.database.with_db());
 
-    // Get the port from Heroku's `PORT` environment variable
-    let port = std::env::var("PORT")
-        .ok()
-        .map(|val| val.parse::<u16>())
-        .unwrap_or(Ok(configuration.application.port));
-
     let address = format!("{}:{}"
-        , configuration.application.host, port.unwrap()
+        , configuration.application.host, configuration.application.port
     );
     // Bubble up the io::Error if we failed to bind the address
     // Otherwise call .await on our Server

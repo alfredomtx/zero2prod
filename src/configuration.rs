@@ -1,8 +1,11 @@
+use config::{Config, ConfigError, ConfigBuilder};
+use config::builder::DefaultState;
 use secrecy::{ExposeSecret, Secret};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgSslMode;
 use sqlx::ConnectOptions;
+
 
 #[derive(Debug)]
 #[derive(serde::Deserialize)]
@@ -55,11 +58,27 @@ impl DatabaseSettings {
     }
 }
 
-pub fn get_configuration() -> Result<Settings, config::ConfigError> {
+pub fn get_database_configuration_heroku(mut builder: ConfigBuilder<DefaultState>) -> ConfigBuilder<DefaultState>{
+    let port: Environment = std::env::var("PORT")
+        .unwrap()
+        .try_into()
+        .expect("Failed to parse PORT.");
+
+
+    builder = builder
+        // Get the port from Heroku's `PORT` environment variable
+        .set_override("PORT", port.as_str())
+        .expect("Failed to parse PORT.");
+
+        builder
+    
+}
+
+pub fn get_configuration() -> Result<Settings, ConfigError> {
     let base_path = std::env::current_dir().expect("Failed to determine the current directory");
     let configuration_directory = base_path.join("configuration");
     
-    // Detect the running environment
+    // Detect the running environment s
     // Default to local if unspecified
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
         .unwrap_or_else(|_| "local".into())
@@ -67,13 +86,20 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .expect("Failed to parse APP_ENVIRONMENT.");
     
     let environment_filename = format!("{}.yaml", environment.as_str());
-    let settings = config::Config::builder()
-        .add_source(config::File::from(configuration_directory.join("base.yaml")))
+
+    let mut builder = Config::builder();
+
+    // must re-assign to retain ownership
+    builder = builder.add_source(config::File::from(configuration_directory.join("base.yaml")))
         .add_source(config::File::from(configuration_directory.join(&environment_filename)))
         // Add in settings from environment variables (with a prefix of APP and '__' as separator)
         // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
-        .add_source(config::Environment::with_prefix("APP").prefix_separator("_").separator("__"))
-        .build()?;
+        .add_source(config::Environment::with_prefix("APP").prefix_separator("_").separator("__"));
+        
+    builder = get_database_configuration_heroku(builder);
+
+
+    let settings = builder.build()?;
     
     settings.try_deserialize::<Settings>()
 }
