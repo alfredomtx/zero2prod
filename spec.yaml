@@ -10,7 +10,7 @@ services:
     source_dir: .
     github:
       branch: master
-      # Deploy a new version on every commit to `main`!
+      # Deploy a new version on every commit to `master`!
       # Continuous Deployment, here we come!
       deploy_on_push: true
       repo: alfredomtx/zero2prod
