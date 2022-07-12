@@ -1,5 +1,4 @@
-use config::{Config, ConfigError, ConfigBuilder};
-use config::builder::DefaultState;
+use config::{Config, ConfigError};
 use secrecy::{ExposeSecret, Secret};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::PgConnectOptions;
@@ -60,9 +59,8 @@ impl DatabaseSettings {
     }
 }
 
-pub fn get_database_configuration_heroku(mut builder: ConfigBuilder<DefaultState>) -> ConfigBuilder<DefaultState>{
+pub fn get_database_configuration_heroku() {
     let env_database_url = env::var("DATABASE_URL").expect("$DATABASE_URL is not set.");
-    // let port = env::var("PORT").expect("$PORT is not set.");
 
     let database_url = Url::parse(env_database_url.as_str()).expect("Failed to parse $DATABASE_URL.");
     let db_port = database_url.port().expect("Failed to parse 'port' from database_url.");
@@ -73,22 +71,17 @@ pub fn get_database_configuration_heroku(mut builder: ConfigBuilder<DefaultState
 
     println!("{:?}", database_url);
 
-
     env::set_var("APP_DATABASE__PORT", db_port.to_string());
     env::set_var("APP_DATABASE__HOST", db_host.to_string());
     env::set_var("APP_DATABASE__USERNAME", db_username.to_string());
     env::set_var("APP_DATABASE__PASSWORD", db_password.to_string());
     env::set_var("APP_DATABASE__DATABASE_NAME", db_database_name.to_string());
+}
 
-
-
-    builder = builder
-        // Get the port from Heroku's `PORT` environment variable
-        .set_override("PORT", db_port)
-        .expect("Failed to override PORT.");
-
-        builder
-    
+pub fn set_port_heroku() {
+    // Get the port from Heroku's `PORT` environment variable
+    let port = env::var("PORT").expect("$PORT is not set.");
+    env::set_var("APP_APPLICATION_PORT", port);
 }
 
 pub fn get_configuration() -> Result<Settings, ConfigError> {
@@ -114,7 +107,8 @@ pub fn get_configuration() -> Result<Settings, ConfigError> {
         .add_source(config::Environment::with_prefix("APP").prefix_separator("_").separator("__"));
         
 
-    builder = get_database_configuration_heroku(builder);
+    set_port_heroku();
+    get_database_configuration_heroku();
 
 
     let settings = builder.build()?;
