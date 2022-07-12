@@ -89,7 +89,7 @@ pub fn get_configuration() -> Result<Settings, ConfigError> {
     let configuration_directory = base_path.join("configuration");
     
     // Detect the running environment s
-    // Default to local if unspecified
+    // Default to `local` if unspecified
     let environment: Environment = env::var("APP_ENVIRONMENT")
         .unwrap_or_else(|_| "local".into())
         .try_into()
@@ -105,11 +105,14 @@ pub fn get_configuration() -> Result<Settings, ConfigError> {
         // Add in settings from environment variables (with a prefix of APP and '__' as separator)
         // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
         .add_source(config::Environment::with_prefix("APP").prefix_separator("_").separator("__"));
-        
-
-    set_port_heroku();
-    get_database_configuration_heroku();
-
+    
+    match environment {
+        Environment::Production => {
+            get_database_configuration_heroku();
+            set_port_heroku();
+        }
+        _ => {}
+    }
 
     let settings = builder.build()?;
     
@@ -117,6 +120,8 @@ pub fn get_configuration() -> Result<Settings, ConfigError> {
 }
 
 /// The possible runtime environment for our application.
+#[derive(Debug)]
+#[derive(serde::Deserialize)]
 pub enum Environment {
     Local,
     Production
