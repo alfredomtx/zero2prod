@@ -5,6 +5,8 @@ use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgSslMode;
 use sqlx::ConnectOptions;
+use std::env;
+use url::Url;
 
 
 #[derive(Debug)]
@@ -59,28 +61,43 @@ impl DatabaseSettings {
 }
 
 pub fn get_database_configuration_heroku(mut builder: ConfigBuilder<DefaultState>) -> ConfigBuilder<DefaultState>{
-    let port: Environment = std::env::var("PORT")
-        .unwrap()
-        .try_into()
-        .expect("Failed to parse PORT.");
+    let env_database_url = env::var("DATABASE_URL").expect("$DATABASE_URL is not set.");
+    // let port = env::var("PORT").expect("$PORT is not set.");
+
+    let database_url = Url::parse(env_database_url.as_str()).expect("Failed to parse $DATABASE_URL.");
+    let db_port = database_url.port().expect("Failed to parse 'port' from database_url.");
+    let db_host = database_url.host().expect("Failed to parse 'host' from database_url.");
+    let db_password = database_url.password().expect("Failed to 'password' from database_url.");
+    let db_username = database_url.username();
+    let db_database_name = database_url.path();
+
+    println!("{:?}", database_url);
+
+
+    env::set_var("APP_DATABASE__PORT", db_port.to_string());
+    env::set_var("APP_DATABASE__HOST", db_host.to_string());
+    env::set_var("APP_DATABASE__USERNAME", db_username.to_string());
+    env::set_var("APP_DATABASE__PASSWORD", db_password.to_string());
+    env::set_var("APP_DATABASE__DATABASE_NAME", db_database_name.to_string());
+
 
 
     builder = builder
         // Get the port from Heroku's `PORT` environment variable
-        .set_override("PORT", port.as_str())
-        .expect("Failed to parse PORT.");
+        .set_override("PORT", db_port)
+        .expect("Failed to override PORT.");
 
         builder
     
 }
 
 pub fn get_configuration() -> Result<Settings, ConfigError> {
-    let base_path = std::env::current_dir().expect("Failed to determine the current directory");
+    let base_path = env::current_dir().expect("Failed to determine the current directory");
     let configuration_directory = base_path.join("configuration");
     
     // Detect the running environment s
     // Default to local if unspecified
-    let environment: Environment = std::env::var("APP_ENVIRONMENT")
+    let environment: Environment = env::var("APP_ENVIRONMENT")
         .unwrap_or_else(|_| "local".into())
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT.");
@@ -96,6 +113,7 @@ pub fn get_configuration() -> Result<Settings, ConfigError> {
         // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
         .add_source(config::Environment::with_prefix("APP").prefix_separator("_").separator("__"));
         
+
     builder = get_database_configuration_heroku(builder);
 
 
