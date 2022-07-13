@@ -81,7 +81,7 @@ pub fn get_database_configuration_heroku() {
 pub fn set_port_heroku() {
     // Get the port from Heroku's `PORT` environment variable
     let port = env::var("PORT").expect("$PORT is not set.");
-    env::set_var("APP_APPLICATION_PORT", port);
+    env::set_var("APP_APPLICATION__PORT", port);
 }
 
 pub fn get_configuration() -> Result<Settings, ConfigError> {
