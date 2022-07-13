@@ -33,6 +33,7 @@ secrecy = { version = "0.8.0", features = ["serde"] }
 tracing-actix-web = "0.6.0"
 serde-aux = "3.1.0"
 url = "2.2.2"
+substring = "1.4.5"
 
 
 # Using table-like toml syntax to avoid a super-long line!

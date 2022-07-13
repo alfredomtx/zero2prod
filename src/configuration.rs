@@ -6,6 +6,7 @@ use sqlx::postgres::PgSslMode;
 use sqlx::ConnectOptions;
 use std::env;
 use url::Url;
+use substring::Substring;
 
 
 #[derive(Debug)]
@@ -67,7 +68,9 @@ pub fn get_database_configuration_heroku() {
     let db_host = database_url.host().expect("Failed to parse 'host' from database_url.");
     let db_password = database_url.password().expect("Failed to 'password' from database_url.");
     let db_username = database_url.username();
-    let db_database_name = database_url.path();
+    let db_database_name = database_url.path().to_string();
+    //  removes the first '/' from the path
+    let db_database_name = db_database_name.substring(1, db_database_name.len());
 
     println!("{:?}", database_url);
 
