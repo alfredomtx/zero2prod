@@ -3,6 +3,7 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+#[derive(Debug)]
 #[derive(serde::Deserialize)]
 pub struct FormData {
     email: String,
@@ -27,7 +28,6 @@ pub async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> Ht
         Err(_) => HttpResponse::InternalServerError().finish()
     }
 }
-
 
 #[tracing::instrument(
     name = "Saving new subscriber details in the database"

@@ -72,8 +72,6 @@ pub fn get_database_configuration_heroku() {
     //  removes the first '/' from the path
     let db_database_name = db_database_name.substring(1, db_database_name.len());
 
-    println!("{:?}", database_url);
-
     env::set_var("APP_DATABASE__PORT", db_port.to_string());
     env::set_var("APP_DATABASE__HOST", db_host.to_string());
     env::set_var("APP_DATABASE__USERNAME", db_username.to_string());
