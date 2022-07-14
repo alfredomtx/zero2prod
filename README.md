@@ -1,5 +1,5 @@
 # zero2prod
-This repository is my journey following the book "Zero2Prod" written by Luca Palmieri, where we build a full web application in Rust from zero, using industry standards and current technologies and metodologies, guided by the author which is an extremely experienced engineer.
+This repository is my journey following the book "Zero2Prod" written by Luca Palmieri, where we build a backend web application in Rust from zero, using industry standards and current technologies and metodologies, guided by the author which is an extremely experienced engineer.
 
 The application we are building is an Email Newsletter backend API.
 
