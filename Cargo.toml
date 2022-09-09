@@ -17,6 +17,10 @@ name = "zero2prod"
 [dev-dependencies]
 reqwest = "0.11"
 once_cell = "1.12.0"
+# We are not using fake >= 2.4 because it relies on rand 0.8
+# which has been recently released and it is not yet used by
+# quickcheck (solved in its upcoming 1.0 release!)
+fake = "~2.3"
 
 [dependencies]
 actix-web = "4.1.0"
