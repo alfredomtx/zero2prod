@@ -11,3 +11,4 @@ database:
 email_client:
   base_url: "localhost"
   sender_email: "test@gmail.com"
+  authorization_token: "05973954-6847-4b63-bf9b-7c7c345d959b"
