@@ -65,11 +65,13 @@ impl EmailClient {
 mod tests {
     use crate::domain::SubscriberEmail;
     use crate::email_client::EmailClient;
+    use claim::{assert_ok, assert_err};
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use fake::{Fake, Faker};
     use secrecy::Secret;
-    use wiremock::matchers::{header, header_exists, path, method};
+    use tracing_subscriber::util::SubscriberInitExt;
+    use wiremock::matchers::{any, header, header_exists, path, method};
     use wiremock::{Mock, MockServer, ResponseTemplate, Request};
 
     struct SendEmailBodyMatcher;
@@ -125,7 +127,44 @@ mod tests {
             .await;
 
         // Assert
-
-
     }
+
+    #[tokio::test]
+    async fn send_email_succeeds_if_the_server_returns_200() {
+        // Arrange
+        let mock_server = MockServer::start().await;
+        let sender = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let email_client = EmailClient::new(
+            mock_server.uri(),
+            sender,
+            Secret::new(Faker.fake())
+        );
+
+        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let subject: String = Sentence(1..2).fake();
+        let content: String = Paragraph(1..10).fake();
+
+        // We do not copy in all the matchers we have in the other test.
+        // The purpose of this test is not to assert on the request we
+        // are sending out!
+        // We add the bare minimum needed to trigger the path we want
+        // to test in `send_email`.
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        // Act 
+        let outcome = email_client
+            .send_email(subscriber_email, &subject, &content, &content)
+            .await;
+
+        // Assert
+        assert_ok!(outcome);
+    }
+
+    
+
+
 }
