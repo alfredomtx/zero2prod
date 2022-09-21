@@ -12,6 +12,7 @@ use substring::Substring;
 
 #[derive(Debug)]
 #[derive(serde::Deserialize)]
+#[derive(Clone)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
@@ -20,6 +21,7 @@ pub struct Settings {
 
 #[derive(Debug)]
 #[derive(serde::Deserialize)]
+#[derive(Clone)]
 pub struct EmailClientSettings {
     pub timeout_milliseconds: u64,
     pub base_url: String,
@@ -39,6 +41,7 @@ impl EmailClientSettings {
 
 #[derive(Debug)]
 #[derive(serde::Deserialize)]   
+#[derive(Clone)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
@@ -47,6 +50,7 @@ pub struct ApplicationSettings {
 
 #[derive(Debug)]
 #[derive(serde::Deserialize)]
+#[derive(Clone)]
 pub struct DatabaseSettings {
     pub username: String,
     pub password: Secret<String>,
