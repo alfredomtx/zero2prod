@@ -81,8 +81,6 @@ mod tests {
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use fake::{Fake, Faker};
     use secrecy::Secret;
-    use tracing::Subscriber;
-    use tracing_subscriber::util::SubscriberInitExt;
     use wiremock::matchers::{any, header, header_exists, path, method};
     use wiremock::{Mock, MockServer, ResponseTemplate, Request};
 
@@ -186,7 +184,6 @@ mod tests {
     async fn send_email_fails_if_the_server_returns_500(){
         // Arrange
         let mock_server = MockServer::start().await;
-        let sender = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
         let email_client = email_client(mock_server.uri());
 
         Mock::given(any())
