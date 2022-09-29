@@ -45,8 +45,6 @@ pub async fn spawn_app() -> TestApp {
         c
     };
 
-
-
     // Create and migrate the database
     configure_database(&configuration.database).await;
 
