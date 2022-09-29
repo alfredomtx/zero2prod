@@ -7,10 +7,17 @@ use wiremock::{Mock, ResponseTemplate};
 async fn subscribe_returns_a_200_for_valid_form_data() {
     // Arrange
     let app = spawn_app().await;
+    let body = "name=Alfredo&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
 
     // Act
-    let body = "name=Alfredo&email=ursula_le_guin%40gmail.com";
     let response = app.post_subscriptions(body.into()).await;
+
     // Assert
     assert_eq!(200, response.status().as_u16());
 
@@ -92,4 +99,6 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
     // Assert
     // Mock asserts on drop
 }
+
+
 

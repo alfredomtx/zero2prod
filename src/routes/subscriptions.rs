@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::{NewSubscriber, SubscriberName, SubscriberEmail};
+use crate::email_client::EmailClient;
 
 #[derive(Debug)]
 #[derive(serde::Deserialize)]
@@ -28,7 +29,12 @@ pub fn parse_subscriber(form: FormData) -> Result<NewSubscriber, String> {
     )
 )]
 #[post("/subscriptions")]
-pub async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> HttpResponse {
+pub async fn subscribe(
+    form: web::Form<FormData>,
+    pool: web::Data<PgPool>,
+    // Get the email client from the app context
+    email_client: web::Data<EmailClient>,
+) -> HttpResponse {
     // `web::Form` is a wrapper around `FormData`
     // `form.0` gives us access to the underlying `FormData`
     let new_subscriber = match parse_subscriber(form.0) {
@@ -36,10 +42,23 @@ pub async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> Ht
         Err(_) => return HttpResponse::BadRequest().finish()
     };
 
-    match insert_subscriber(&pool, &new_subscriber).await {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish()
+    if insert_subscriber(&pool, &new_subscriber).await.is_err() {
+        return HttpResponse::InternalServerError().finish();
     }
+
+    // Send a (useless) email to the new subscriber.
+    if email_client.send_email(
+        new_subscriber.email,
+        "Welcome!",
+        "Welcome to our newsletter!",
+        "Welcome to our newsletter!"
+    )
+    .await
+    .is_err() {
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    HttpResponse::Ok().finish()
 }
 
 
