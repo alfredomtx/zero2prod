@@ -5,10 +5,24 @@ use zero2prod::startup::Application;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 use uuid::Uuid;
 use once_cell::sync::Lazy;
+use wiremock::MockServer;
 
 pub struct TestApp {
     pub address: String,
-    pub db_pool: PgPool
+    pub db_pool: PgPool,
+    pub email_server: MockServer,
+}
+
+impl TestApp {
+    pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(&format!("{}/subscriptions", &self.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
 }
 
 // Ensure that the `tracing` stack is only initialised once using `once_cell`
@@ -35,6 +49,9 @@ pub async fn spawn_app() -> TestApp {
     // All other invocations will instead skip execution.
     Lazy::force(&TRACING);
 
+    // Launch a mock server to stand in for Postmark's API
+    let email_server = MockServer::start().await;
+
     // Randomise configuration to ensure test isolation
     let configuration =  {
         let mut c = get_configuration().expect("Failed to read configuration.");
@@ -42,6 +59,8 @@ pub async fn spawn_app() -> TestApp {
         c.database.database_name = Uuid::new_v4().to_string();
         // Use a random OS port
         c.application.port = 0;
+        // Use the mock server as email API
+        c.email_client.base_url = email_server.uri();
         c
     };
 
@@ -61,7 +80,8 @@ pub async fn spawn_app() -> TestApp {
     // We return the application address to the caller
     TestApp {
         address: address,
-        db_pool: get_connection_pool(&configuration.database)
+        db_pool: get_connection_pool(&configuration.database),
+        email_server,
     }
 }
 
