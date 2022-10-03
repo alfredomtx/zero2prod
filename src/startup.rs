@@ -16,6 +16,12 @@ pub struct Application {
     server: Server,
 }
 
+// We need to define a wrapper type in order to retrieve the URL
+// in the `subscribe` handler.
+// Retrieval from the context, in actix-web, is type-based: using
+// a raw `String` would expose us to conflicts.
+pub struct ApplicationBaseUrl(pub String);
+
 impl Application {
     // We have converted the `build` function into a constructor for `Application`
     pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
@@ -43,23 +49,30 @@ impl Application {
         // Otherwise call .await on our Server
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
-        let server = run(listener, connection_pool, email_client)?;
+        let server = run(
+            listener,
+            connection_pool,
+            email_client,
+            configuration.application.base_url,
+        )?;
 
         // We "save" the bound port in one of `Application`'s fields
-        Ok(Self { port, server })
+        return Ok(Self { port, server });
     }
 
     pub fn port(&self) -> u16 {
-        self.port
+        return self.port;
     }
 
     // A more expressive name that makes it clear that
     // this function only returns when the application is stopped.
     pub async fn run_until_stopped(self) -> Result<(), std::io::Error> {
-        self.server.await
+        return self.server.await;
     }
     
 }
+
+
 
 pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
     return PgPoolOptions::new()
@@ -70,10 +83,12 @@ pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
 pub fn run(
     listener: TcpListener,
     db_pool: PgPool,
-    email_client: EmailClient
+    email_client: EmailClient,
+    base_url: String,
 ) -> Result<Server, std::io::Error> {
     let db_pool = Data::new(db_pool);
     let email_client = Data::new(email_client);
+    let base_url = Data::new(ApplicationBaseUrl(base_url));
     let server = HttpServer::new(move || {
         App::new()
             // TracingLogger instead of default actix_web logger to return with request_id (and other information aswell)
@@ -83,6 +98,7 @@ pub fn run(
             .service(confirm)
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
+            .app_data(base_url.clone())
     })
     .listen(listener)?
     .run();
