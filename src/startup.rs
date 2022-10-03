@@ -1,5 +1,5 @@
 use crate::email_client::{EmailClient};
-use crate::routes::{health_check, subscribe};
+use crate::routes::{health_check, subscribe, confirm};
 use actix_web::dev::Server;
 use actix_web::web::Data;
 use actix_web::{App, HttpServer};
@@ -62,9 +62,9 @@ impl Application {
 }
 
 pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
-    PgPoolOptions::new()
+    return PgPoolOptions::new()
         .acquire_timeout(std::time::Duration::from_secs(2))
-        .connect_lazy_with(configuration.with_db())
+        .connect_lazy_with(configuration.with_db());
 }
 
 pub fn run(
@@ -80,11 +80,12 @@ pub fn run(
             .wrap(TracingLogger::default())
             .service(subscribe)
             .service(health_check)
+            .service(confirm)
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
     })
     .listen(listener)?
     .run();
 
-    Ok(server)
+    return Ok(server);
 }
