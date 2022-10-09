@@ -1,4 +1,5 @@
-use actix_web::{post, web, HttpResponse};
+use actix_web::{post, web, HttpResponse, ResponseError};
+use actix_web::http::StatusCode;
 use chrono::Utc;
 use sqlx::{Postgres, PgPool, Transaction};
 use uuid::Uuid;
@@ -14,6 +15,68 @@ use crate::startup::ApplicationBaseUrl;
 pub struct FormData {
     email: String,
     name: String,
+ }
+
+
+// A new error type, wrapping a sqlx::Error
+#[derive(Debug)]
+pub struct StoreTokenError(sqlx::Error);
+
+impl std::fmt::Display for StoreTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "A database error was encontered while trying to store a subscription token.")
+    }
+}
+
+
+impl std::fmt::Display for SubscribeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to create a new subscriber.")
+    }
+}
+
+impl std::error::Error for SubscribeError {}
+impl ResponseError for SubscribeError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            SubscribeError::DatabaseError(_) 
+            | SubscribeError::StoreTokenError(_)
+            | SubscribeError::SendEmailError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum SubscribeError {
+    ValidationError(String),
+    DatabaseError(sqlx::Error),
+    StoreTokenError(StoreTokenError),
+    SendEmailError(reqwest::Error),
+}
+
+impl From<reqwest::Error> for SubscribeError {
+    fn from(e: reqwest::Error) -> Self {
+        Self::SendEmailError(e)
+    }
+}
+
+impl From<sqlx::Error> for SubscribeError {
+    fn from(e: sqlx::Error) -> Self {
+        Self::DatabaseError(e)
+    }
+}
+
+impl From<StoreTokenError> for SubscribeError {
+    fn from(e: StoreTokenError) -> Self {
+        Self::StoreTokenError(e)
+    }
+}
+
+impl From<String> for SubscribeError {
+    fn from(e: String) -> Self {
+        Self::ValidationError(e)
+    }
 }
 
 #[allow(clippy::async_yields_async)]
@@ -32,40 +95,19 @@ pub async fn subscribe(
     // Get the email client from the app context
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
-) -> HttpResponse {
-    let mut transaction = match pool.begin().await {
-        Ok(transaction) => transaction,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-    // `web::Form` is a wrapper around `FormData`
+) -> Result<HttpResponse, SubscribeError> {
     // `form.0` gives us access to the underlying `FormData`
-    let new_subscriber = match parse_subscriber(form.0) {
-        Ok(subscriber) => subscriber,
-        Err(_) => return HttpResponse::BadRequest().finish()
-    };
+    let new_subscriber = parse_subscriber(form.0).map_err(SubscribeError::ValidationError)?;
+    let mut transaction = pool.begin().await?;    // `web::Form` is a wrapper around `FormData`
 
-    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
-        Ok(subscriber_id) => subscriber_id,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
+    let subscriber_id = insert_subscriber(&mut transaction, &new_subscriber).await?;
     let subscription_token = generate_subscription_token();
-    if store_token(&mut transaction, subscriber_id, &subscription_token).await.is_err() {
-        return HttpResponse::InternalServerError().finish();
-    }
-    if transaction.commit().await.is_err() {
-        return HttpResponse::InternalServerError().finish();
-    }
-    if send_confirmation_email(
-        &email_client,
-        new_subscriber,
-        &base_url.0,
-        &subscription_token
-    ).await.is_err() {
-        return HttpResponse::InternalServerError().finish();
-    }
+    store_token(&mut transaction, subscriber_id, &subscription_token).await?; 
+    transaction.commit().await?;
 
-    HttpResponse::Ok().finish()
+    send_confirmation_email(&email_client, new_subscriber, &base_url.0, &subscription_token).await?;
+
+    Ok(HttpResponse::Ok().finish())
 }
 
 /// Generate a random 25-characters-long case-sensitive subscription token.
@@ -87,9 +129,7 @@ pub fn parse_subscriber(form: FormData) -> Result<NewSubscriber, String> {
     name = "Store subscription token in the database",
     skip(subscription_token, transaction)
 )]
-pub async fn store_token(
-    transaction: &mut Transaction<'_, Postgres>,
-    subscriber_id: Uuid,
+pub async fn store_token(transaction: &mut Transaction<'_, Postgres>,subscriber_id: Uuid,
     subscription_token: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(

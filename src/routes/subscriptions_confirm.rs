@@ -69,5 +69,3 @@ pub async fn get_subscriber_id_from_token(pool: &PgPool, subscription_token: &st
 
     return Ok(result.map(|r| r.subscriber_id));
 }
-
-
