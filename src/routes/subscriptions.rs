@@ -115,11 +115,7 @@ pub async fn store_token(transaction: &mut Transaction<'_, Postgres>,subscriber_
         subscriber_id
     )
     .execute(transaction)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .await?;
 
     return Ok(());
 }
@@ -198,14 +194,7 @@ pub async fn insert_subscriber(transaction: &mut Transaction<'_, Postgres>, new_
         Utc::now()
     )
     .execute(transaction)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    // Using the `?` operator to return early
-    // if the function failed, returning a sqlx::Error
-    // We will talk about error handling in depth later!
-    })?;
+    .await?;
     Ok(subscriber_id)
 }
 
