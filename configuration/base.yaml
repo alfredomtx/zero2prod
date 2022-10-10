@@ -3,7 +3,7 @@ application:
   
 database:
   host: "127.0.0.1"
-  port: 49154
+  port: 49157
   username: "postgres"
   password: "postgrespw"
   database_name: "newsletter"
