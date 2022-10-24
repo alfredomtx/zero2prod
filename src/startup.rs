@@ -1,5 +1,5 @@
-use crate::email_client::{EmailClient};
-use crate::routes::{health_check, subscribe, confirm};
+use crate::email_client::EmailClient;
+use crate::routes::{health_check, subscribe, confirm, publish_newsletter};
 use actix_web::dev::Server;
 use actix_web::web::Data;
 use actix_web::{App, HttpServer};
@@ -96,6 +96,7 @@ pub fn run(
             .service(subscribe)
             .service(health_check)
             .service(confirm)
+            .service(publish_newsletter)
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())
