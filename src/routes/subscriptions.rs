@@ -172,7 +172,7 @@ pub async fn send_confirmation_email(
     // Send a (useless) email to the new subscriber.
     // We are ignoring email delivery errors for now.
     email_client
-        .send_email(new_subscriber.email, "Welcome!", &html_body, &plain_body)
+        .send_email(&new_subscriber.email, "Welcome!", &html_body, &plain_body)
         .await
 }
 

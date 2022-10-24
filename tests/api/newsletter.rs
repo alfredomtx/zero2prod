@@ -16,8 +16,6 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers(){
         .await;
 
     // Act
-    let newsletter_request_body = get_newsletter_request_body(); 
-
     let response = app.post_newsletters(get_newsletter_request_body()).await; 
 
     // Assert
