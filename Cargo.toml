@@ -49,6 +49,7 @@ reqwest = { version = "0.11", default-features = false, features = ["json", "rus
 rand = { version = "0.8", features=["std_rng"] }
 thiserror = "1.0.37"
 anyhow = "1.0.65"
+base64 = "0.13.1"
 
 
 # Using table-like toml syntax to avoid a super-long line!
