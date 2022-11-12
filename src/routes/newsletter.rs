@@ -1,6 +1,6 @@
 use actix_web::{web, post, HttpResponse, HttpRequest, ResponseError};
 use actix_web::http::StatusCode;
-use actix_web::http::header::HeaderMap;
+use actix_web::http::header::{HeaderMap};
 use sqlx::PgPool;
 use crate::routes::error_chain_fmt;
 use crate::email_client::EmailClient;
@@ -60,6 +60,7 @@ pub async fn publish_newsletter(
     return Ok(HttpResponse::Ok().finish());
 }
 
+#[tracing::instrument(name = "Validate credentials", skip(credentials, pool))]
 async fn validate_credentials(credentials: Credentials, pool: &PgPool) -> Result<uuid::Uuid, PublishError> {
     let row: Option<_> = sqlx::query!(
         r#"
@@ -84,13 +85,34 @@ async fn validate_credentials(credentials: Credentials, pool: &PgPool) -> Result
         .context("Failed to parse hash in PHC string format.")
         .map_err(PublishError::UnexpectedError)?;
 
-    Argon2::default()
-        .verify_password(credentials.password.expose_secret().as_bytes(), &expected_password_hash)
+    tracing::info_span!("Verify password hash")
+        .in_scope(|| {
+            Argon2::default()
+                .verify_password(credentials.password.expose_secret().as_bytes(), &expected_password_hash)
+        })
         .context("Invalid password")
         .map_err(PublishError::AuthError)?;
 
     return Ok(user_id);
 }
+
+// We extracted the db-querying logic in its own function with its own span.
+// #[tracing::instrument(name = "Get stored credentials", skip(username, pool))]
+// async fn get_stored_credentials(username: &str, pool: &PgPool) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
+//     let row = sqlx::query!(
+//         r#"
+//         SELECT user_id, password_hash FROM users
+//         WHERE username = $1
+//         "#,
+//         username
+//     )    
+//     .fetch_optional(pool)
+//     .await
+//     .context("Failed to retrieve stored credentials")
+//     .map(|row| (row.user_id, Secret::new(row.password_hash)));
+//
+//     return Ok(row);
+// }
 
 fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
     // the header value, if present, msut be a valid UTF8 string

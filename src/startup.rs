@@ -9,6 +9,7 @@ use tracing_actix_web::TracingLogger;
 use crate::configuration::Settings;
 use sqlx::postgres::PgPoolOptions;
 use crate::configuration::DatabaseSettings;
+use crate::routes::{home, login, login_form};
 
 // A new type to hold the newly built server and its port
 pub struct Application {
@@ -93,6 +94,9 @@ pub fn run(
         App::new()
             // TracingLogger instead of default actix_web logger to return with request_id (and other information aswell)
             .wrap(TracingLogger::default())
+            .service(home)
+            .service(login)
+            .service(login_form)
             .service(subscribe)
             .service(health_check)
             .service(confirm)
