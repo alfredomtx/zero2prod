@@ -112,6 +112,21 @@ impl TestApp {
         };
     }
 
+    pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response where Body: serde::Serialize {
+        return reqwest::Client::builder()
+            // disabling redirect follow 
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap()
+            .post(&format!("{}/login", &self.address))
+            // This reqwest method makes sure that the body is URL-encoded
+            // and the Content-Type header is set accordingly.
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request");
+    }
+
 }
 
 // Ensure that the `tracing` stack is only initialised once using `once_cell`
@@ -200,3 +215,9 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
 
     return connection_pool;
 }
+
+pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str){
+    assert_eq!(response.status().as_u16(), 303);
+    assert_eq!(response.headers().get("Location").unwrap(), location);
+}
+

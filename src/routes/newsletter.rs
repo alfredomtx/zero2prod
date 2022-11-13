@@ -1,13 +1,11 @@
 use actix_web::{web, post, HttpResponse, HttpRequest, ResponseError};
 use actix_web::http::StatusCode;
-use actix_web::http::header::{HeaderMap};
 use sqlx::PgPool;
 use crate::routes::error_chain_fmt;
 use crate::email_client::EmailClient;
 use crate::domain::SubscriberEmail;
 use anyhow::Context;
-use secrecy::{ExposeSecret, Secret};
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use crate::authentication::{validate_credentials, basic_authentication, AuthError};
 
 
 // Dummy implementation
@@ -21,12 +19,17 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 pub async fn publish_newsletter(
     body: web::Json<BodyData>, pool: web::Data<PgPool>, email_client: web::Data<EmailClient>, request: HttpRequest,
 ) -> Result<HttpResponse, PublishError> {
-    let credentials = basic_authentication(request.headers())
-        .map_err(PublishError::AuthError)?;
+    let credentials = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
     // tracing who is calling
     tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
 
-    let user_id = validate_credentials(credentials, &pool).await?;
+    let user_id = validate_credentials(credentials, &pool)
+        .await
+        .map_err(|e| match e {
+            AuthError::InvalidCredentials(_) => PublishError::AuthError(e.into()),
+            AuthError::UnexpectedError(_) => PublishError::UnexpectedError(e.into()),
+        })?;
+
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
     let subscribers = get_confirmed_subscribers(&pool).await?;
@@ -60,98 +63,6 @@ pub async fn publish_newsletter(
     return Ok(HttpResponse::Ok().finish());
 }
 
-#[tracing::instrument(name = "Validate credentials", skip(credentials, pool))]
-async fn validate_credentials(credentials: Credentials, pool: &PgPool) -> Result<uuid::Uuid, PublishError> {
-    let row: Option<_> = sqlx::query!(
-        r#"
-        SELECT user_id, password_hash FROM USERS 
-        WHERE username = $1
-        "#,
-        credentials.username
-    )
-    .fetch_optional(pool)
-    .await
-    .context("Failed to perform query to retrieve user credentials")
-    .map_err(PublishError::UnexpectedError)?;
-
-    let (expected_password_hash, user_id) = match row {
-        Some(row) => (row.password_hash, row.user_id),
-        None => {
-            return Err(PublishError::AuthError(anyhow::anyhow!("Unknown username")));
-        }
-    };
-
-    let expected_password_hash = PasswordHash::new(&expected_password_hash)
-        .context("Failed to parse hash in PHC string format.")
-        .map_err(PublishError::UnexpectedError)?;
-
-    tracing::info_span!("Verify password hash")
-        .in_scope(|| {
-            Argon2::default()
-                .verify_password(credentials.password.expose_secret().as_bytes(), &expected_password_hash)
-        })
-        .context("Invalid password")
-        .map_err(PublishError::AuthError)?;
-
-    return Ok(user_id);
-}
-
-// We extracted the db-querying logic in its own function with its own span.
-// #[tracing::instrument(name = "Get stored credentials", skip(username, pool))]
-// async fn get_stored_credentials(username: &str, pool: &PgPool) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
-//     let row = sqlx::query!(
-//         r#"
-//         SELECT user_id, password_hash FROM users
-//         WHERE username = $1
-//         "#,
-//         username
-//     )    
-//     .fetch_optional(pool)
-//     .await
-//     .context("Failed to retrieve stored credentials")
-//     .map(|row| (row.user_id, Secret::new(row.password_hash)));
-//
-//     return Ok(row);
-// }
-
-fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
-    // the header value, if present, msut be a valid UTF8 string
-    let header_value = headers
-        .get("Authorization")
-        .context("The 'Authorization' header was missing")?
-        .to_str()
-        .context("The 'Authorization' header was not a valid UFT8 string.")?;
-
-    let base64encoded_segment = header_value
-        .strip_prefix("Basic ")
-        .context("The Authorization scheme was not 'Basic'.")?;
-    let decoded_bytes = base64::decode_config(base64encoded_segment, base64::STANDARD)
-        .context("Failed to decode base64 Basic crednetials.")?;
-    let decoded_credentials = String::from_utf8(decoded_bytes)
-        .context("Failed to decode credentials.")?;
-
-    // Split into two segments, using : as delimiter
-    let mut credentials = decoded_credentials.splitn(2, ':');
-    let username = credentials
-        .next()
-        .ok_or_else(|| {
-            anyhow::anyhow!("A username must be provided in Basic auth.")
-        })?
-        .to_string();
-    let password = credentials
-        .next()
-        .ok_or_else(|| {
-            anyhow::anyhow!("A password must be provided in Basic auth.")
-        })?
-        .to_string();
-
-    return Ok(Credentials { username, password: Secret::new(password) });
-}
-
-struct Credentials {
-    username: String,
-    password: Secret<String>,
-}
 
 
 #[derive(serde::Deserialize)]
