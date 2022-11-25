@@ -4,6 +4,7 @@ This repository is my journey following the book "Zero2Prod" written by Luca Pal
 The application we are building is an Email Newsletter backend API.
 
 
+## Book description
 
 <div align="center"><a href="https://zero2prod.com" target="_blank"><img src="https://www.zero2prod.com/assets/img/zero2prod_banner.webp" /></a></div>
 
