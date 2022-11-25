@@ -4,8 +4,7 @@ This repository is my journey following the book "Zero2Prod" written by Luca Pal
 The application we are building is an Email Newsletter backend API.
 
 
-
-## Book information
+## Book description
 [Zero To Production In Rust](https://zero2prod.com) is an opinionated introduction to backend development using Rust.
 
 The book takes you on a journey to discover the world of backend development in Rust.
