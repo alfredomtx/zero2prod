@@ -50,7 +50,7 @@ pub async fn validate_credentials(credentials: Credentials, pool: &PgPool) -> Re
     .await
     .context("Failed to perform query to retrieve user credentials")
     .map_err(AuthError::UnexpectedError)?;
-
+    
     let (expected_password_hash, user_id) = match row {
         Some(row) => (row.password_hash, row.user_id),
         None => {

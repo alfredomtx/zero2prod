@@ -1,7 +1,7 @@
 use crate::email_client::EmailClient;
-use crate::routes::{health_check, subscribe, confirm, publish_newsletter};
+use crate::routes::{health_check, subscribe, confirm, publish_newsletter, admin_dashboard};
 use actix_web::dev::Server;
-use actix_web::web::Data;
+use actix_web::web::{Data, self};
 use actix_web::{App, HttpServer};
 use sqlx::PgPool;
 use std::net::TcpListener;
@@ -10,6 +10,10 @@ use crate::configuration::Settings;
 use sqlx::postgres::PgPoolOptions;
 use crate::configuration::DatabaseSettings;
 use crate::routes::{home, login, login_form};
+use actix_session::SessionMiddleware;
+use actix_web::cookie::Key;
+use actix_session::storage::RedisSessionStore;
+use secrecy::{ExposeSecret, Secret};
 
 // A new type to hold the newly built server and its port
 pub struct Application {
@@ -25,7 +29,7 @@ pub struct ApplicationBaseUrl(pub String);
 
 impl Application {
     // We have converted the `build` function into a constructor for `Application`
-    pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
+    pub async fn build(configuration: Settings) -> Result<Self, anyhow::Error> {
         let connection_pool = get_connection_pool(&configuration.database);
 
         let sender_email = configuration
@@ -55,7 +59,8 @@ impl Application {
             connection_pool,
             email_client,
             configuration.application.base_url,
-        )?;
+            configuration.redis_uri,
+        ).await?;
 
         // We "save" the bound port in one of `Application`'s fields
         return Ok(Self { port, server });
@@ -81,19 +86,26 @@ pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
         .connect_lazy_with(configuration.with_db());
 }
 
-pub fn run(
+pub async fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
-) -> Result<Server, std::io::Error> {
+    redis_uri: Secret<String>,
+) -> Result<Server, anyhow::Error> {
     let db_pool = Data::new(db_pool);
     let email_client = Data::new(email_client);
     let base_url = Data::new(ApplicationBaseUrl(base_url));
+    let secret_key = Key::from("test".as_bytes());
+    let redis_store = RedisSessionStore::new(redis_uri.expose_secret()).await?;
+
     let server = HttpServer::new(move || {
         App::new()
             // TracingLogger instead of default actix_web logger to return with request_id (and other information aswell)
             .wrap(TracingLogger::default())
+            .wrap(SessionMiddleware::new(todo!(), secret_key.clone()))
+
+            .route("/admin/dashboard", web::get().to(admin_dashboard))
             .service(home)
             .service(login)
             .service(login_form)

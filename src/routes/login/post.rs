@@ -7,16 +7,17 @@ use secrecy::Secret;
 use sqlx::PgPool;
 use crate::routes::error_chain_fmt;
 use actix_web::cookie::Cookie;
+use actix_session::Session;
 
 
 #[post("/login")]
 #[tracing::instrument(
-    skip(form, pool),
+    skip(form, pool, session),
     fields(usernam = tracing::field::Empty, user_id = tracing::field::Empty)
 )]
-pub async fn login(form: web::Form<FormData>, pool: web::Data<PgPool>) -> Result<HttpResponse, InternalError<LoginError>> {
+pub async fn login(form: web::Form<FormData>, pool: web::Data<PgPool>, session: Session) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
-        username: form.0.username,
+        username: form.0.username, 
         password: form.0.password
     };
 
@@ -24,6 +25,7 @@ pub async fn login(form: web::Form<FormData>, pool: web::Data<PgPool>) -> Result
     match validate_credentials(credentials, &pool).await {
         Ok(user_id) => {
             tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
+            session.insert("user_id", user_id);
             return Ok(HttpResponse::SeeOther().insert_header((LOCATION, "/")).finish());
         }
         Err(e) => {

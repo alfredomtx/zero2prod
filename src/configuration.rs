@@ -8,19 +8,19 @@ use sqlx::ConnectOptions;
 use std::env;
 use url::Url;
 use substring::Substring;
+use serde::Deserialize;
 
 
-#[derive(Debug)]
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Debug)]
 #[derive(Clone)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
+    pub redis_uri: Secret<String>,
 }
 
-#[derive(Debug)]
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Debug)]
 #[derive(Clone)]
 pub struct EmailClientSettings {
     pub timeout_milliseconds: u64,
@@ -29,18 +29,7 @@ pub struct EmailClientSettings {
     pub authorization_token: Secret<String>,
 }
 
-impl EmailClientSettings {
-    pub fn sender(&self) -> Result<SubscriberEmail, String> {
-        SubscriberEmail::parse(self.sender_email.clone())
-    }
-    
-    pub fn timeout(&self) -> std::time::Duration {
-        std::time::Duration::from_millis(self.timeout_milliseconds)
-    }
-}
-
-#[derive(Debug)]
-#[derive(serde::Deserialize)]   
+#[derive(Deserialize, Debug)]   
 #[derive(Clone)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -49,8 +38,7 @@ pub struct ApplicationSettings {
     pub base_url: String,
 }
 
-#[derive(Debug)]
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Debug)]
 #[derive(Clone)]
 pub struct DatabaseSettings {
     pub username: String,
@@ -62,6 +50,18 @@ pub struct DatabaseSettings {
     // Determine if we demand the connection to be encrypted or not
     pub require_ssl: bool
 }
+
+
+impl EmailClientSettings {
+    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+        SubscriberEmail::parse(self.sender_email.clone())
+    }
+    
+    pub fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.timeout_milliseconds)
+    }
+}
+
 
 impl DatabaseSettings {
     pub fn without_db(&self) -> PgConnectOptions {
@@ -147,8 +147,7 @@ pub fn get_configuration() -> Result<Settings, ConfigError> {
 }
 
 /// The possible runtime environment for our application.
-#[derive(Debug)]
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Debug)]
 pub enum Environment {
     Local,
     Production

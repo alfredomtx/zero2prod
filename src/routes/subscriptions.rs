@@ -10,9 +10,9 @@ use rand::{thread_rng, Rng};
 use crate::domain::{NewSubscriber, SubscriberName, SubscriberEmail};
 use crate::email_client::EmailClient;
 use crate::startup::ApplicationBaseUrl;
+use serde::Deserialize;
 
-#[derive(Debug)]
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct FormData {
     email: String,
     name: String,
