@@ -1,21 +1,21 @@
+use crate::session_state::TypedSession;
 use crate::authentication::{validate_credentials, Credentials, AuthError};
 use actix_web::error::InternalError;
 use actix_web::{web, post, HttpResponse, ResponseError};
 use actix_web::http::header::LOCATION;
 use actix_web::http::StatusCode;
+use actix_web_flash_messages::FlashMessage;
 use secrecy::Secret;
 use sqlx::PgPool;
 use crate::routes::error_chain_fmt;
-use actix_web::cookie::Cookie;
-use actix_session::Session;
 
 
 #[post("/login")]
 #[tracing::instrument(
     skip(form, pool, session),
-    fields(usernam = tracing::field::Empty, user_id = tracing::field::Empty)
+    fields(username = tracing::field::Empty, user_id = tracing::field::Empty)
 )]
-pub async fn login(form: web::Form<FormData>, pool: web::Data<PgPool>, session: Session) -> Result<HttpResponse, InternalError<LoginError>> {
+pub async fn login(form: web::Form<FormData>, pool: web::Data<PgPool>, session: TypedSession) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
         username: form.0.username, 
         password: form.0.password
@@ -25,8 +25,10 @@ pub async fn login(form: web::Form<FormData>, pool: web::Data<PgPool>, session: 
     match validate_credentials(credentials, &pool).await {
         Ok(user_id) => {
             tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
-            session.insert("user_id", user_id);
-            return Ok(HttpResponse::SeeOther().insert_header((LOCATION, "/")).finish());
+            session.renew();
+            session.insert_user_id(user_id)
+                .map_err(|e| login_redirect(LoginError::UnexpectedError(e.into())))?;
+            return Ok(HttpResponse::SeeOther().insert_header((LOCATION, "/admin/dashboard")).finish());
         }
         Err(e) => {
             let e = match e {
@@ -34,17 +36,19 @@ pub async fn login(form: web::Form<FormData>, pool: web::Data<PgPool>, session: 
                 AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into())
             };
 
-            let response = HttpResponse::SeeOther()
-                .insert_header((LOCATION, format!("/login")))
-                // inserting the error in the cookie
-                .cookie(Cookie::new("_flash", e.to_string()))
-                .finish();
-
-            return Err(InternalError::from_response(e, response));
+            return Err(login_redirect(e));
         }
     }
 }
 
+// Redirect to the login page with an error message.
+fn login_redirect(e: LoginError) -> InternalError<LoginError> {
+    FlashMessage::error(e.to_string()).send();
+    let response = HttpResponse::SeeOther()
+        .insert_header((LOCATION, "/login"))
+        .finish();
+    return InternalError::from_response(e, response);
+}
 
 #[derive(serde::Deserialize)]
 pub struct FormData {

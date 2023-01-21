@@ -1,5 +1,5 @@
 use crate::email_client::EmailClient;
-use crate::routes::{health_check, subscribe, confirm, publish_newsletter, admin_dashboard};
+use crate::routes::{health_check, subscribe, confirm, publish_newsletter, admin_dashboard, log_out, change_password_form, change_password};
 use actix_web::dev::Server;
 use actix_web::web::{Data, self};
 use actix_web::{App, HttpServer};
@@ -14,6 +14,8 @@ use actix_session::SessionMiddleware;
 use actix_web::cookie::Key;
 use actix_session::storage::RedisSessionStore;
 use secrecy::{ExposeSecret, Secret};
+use crate::authentication::reject_anonymous_users;
+use actix_web_lab::middleware::from_fn;
 
 // A new type to hold the newly built server and its port
 pub struct Application {
@@ -80,12 +82,6 @@ impl Application {
 
 
 
-pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
-    return PgPoolOptions::new()
-        .acquire_timeout(std::time::Duration::from_secs(2))
-        .connect_lazy_with(configuration.with_db());
-}
-
 pub async fn run(
     listener: TcpListener,
     db_pool: PgPool,
@@ -103,9 +99,12 @@ pub async fn run(
         App::new()
             // TracingLogger instead of default actix_web logger to return with request_id (and other information aswell)
             .wrap(TracingLogger::default())
-            .wrap(SessionMiddleware::new(todo!(), secret_key.clone()))
+            .wrap(SessionMiddleware::new(redis_store.clone(), secret_key.clone()))
 
-            .route("/admin/dashboard", web::get().to(admin_dashboard))
+            .app_data(db_pool.clone())
+            .app_data(email_client.clone())
+            .app_data(base_url.clone())
+
             .service(home)
             .service(login)
             .service(login_form)
@@ -113,12 +112,25 @@ pub async fn run(
             .service(health_check)
             .service(confirm)
             .service(publish_newsletter)
-            .app_data(db_pool.clone())
-            .app_data(email_client.clone())
-            .app_data(base_url.clone())
+            .service(web::scope("/admin")
+                .wrap(from_fn(reject_anonymous_user))
+                .route("/dashboard", web::post().to(admin_dashboard))
+                .route("/password", web::get().to(change_password_form))
+                .route("/password", web::post().to(change_password))
+                .route("/logout", web::post().to(log_out))
+            )
+       
     })
     .listen(listener)?
     .run();
 
     return Ok(server);
 }
+
+
+pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
+    return PgPoolOptions::new()
+        .acquire_timeout(std::time::Duration::from_secs(2))
+        .connect_lazy_with(configuration.with_db());
+}
+

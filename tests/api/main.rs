@@ -1,3 +1,4 @@
+mod change_password;
 mod helpers;
 mod health_check;
 mod login;

@@ -4,7 +4,6 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use actix_web::http::header::{HeaderMap};
 use sqlx::PgPool;
 
-
 #[derive(thiserror::Error, Debug)]
 pub enum AuthError {
     #[error("Invalid credentials.")]
@@ -107,3 +106,24 @@ pub fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::
     return Ok(Credentials { username, password: Secret::new(password) });
 }
 
+
+#[tracing::instrument(name = "Change password", skip(password, pool))]
+pub async fn change_password(
+    user_id: uuid::Uuid,
+    password: Secret<String>,
+    pool: &PgPool,
+) -> Result<(), anyhow::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE users
+        SET password_hash = $1
+        WHERE user_id = $2
+        "#,
+        password.expose_secret(),
+        user_id
+    )
+    .execute(pool)
+    .await
+    .context("Failed to change user's password in the database.")?;
+    return Ok(());
+}
